@@ -1,0 +1,14 @@
+# Example: Get all salons (route to Go)
+query AllSalons {
+  allSalons {
+    _id
+    name
+    phone
+    address {
+      street
+      city
+      state
+      zipCode
+    }
+  }
+}

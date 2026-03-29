@@ -1,0 +1,18 @@
+{
+  "name": "graphql-tester",
+  "version": "1.0.0",
+  "description": "Lightweight CLI for sending GraphQL queries with custom headers",
+  "main": "index.js",
+  "bin": {
+    "gql": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": ["graphql", "cli", "testing"],
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.7"
+  }
+}

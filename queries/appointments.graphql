@@ -1,0 +1,18 @@
+# Example: Get appointments for a salon (route comparison)
+query AppointmentsBySalon($salonId: ID!, $startDate: DateTime!, $endDate: DateTime!) {
+  appointmentBySalonV2(salonId: $salonId, startDate: $startDate, endDate: $endDate) {
+    _id
+    startTime
+    endTime
+    status
+    customer {
+      _id
+      firstName
+      lastName
+    }
+    technician {
+      _id
+      firstName
+    }
+  }
+}
