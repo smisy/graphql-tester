@@ -49,7 +49,16 @@ node index.js -f queries/all-salons.graphql --route go
 node index.js -f queries/all-salons.graphql --route csharp
 ```
 
-### Compare Go vs C# responses
+### Compare Go vs C# responses (built-in)
+```bash
+# Single command: sends both, prints both, diffs automatically
+node index.js -q '{ allSalons { _id name } }' --compare
+
+# With --raw: also writes go.json and csharp.json for external tools
+node index.js -f queries/all-salons.graphql --compare --raw
+```
+
+### Manual compare (if you prefer external diff)
 ```bash
 node index.js -f queries/all-salons.graphql --route go --raw > go.json
 node index.js -f queries/all-salons.graphql --route csharp --raw > csharp.json
@@ -82,6 +91,7 @@ echo '{ allSalons { _id name } }' | node index.js
 | `-v, --variables` | JSON variables | `{}` |
 | `-H, --header` | Custom header (repeatable) | — |
 | `--route` | Shorthand for `X-Route-Override` | — |
+| `--compare` | Send to both Go & C# routes, diff results | — |
 | `--raw` | Raw JSON output (no formatting) | — |
 | `--timing` | Show request duration | — |
 
