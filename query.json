@@ -1,0 +1,8 @@
+{
+  "query": "\n  query technicianAvailableTimesForMultipleServices($nailServices: [String!]!, $bookingDate: Date!, $existingNailService: [String!], $existingBookingDateTime: DateTime) {\n    technicianAvailableTimesForMultipleServices(input: {\n      nailServices: $nailServices,\n      bookingDate: $bookingDate,\n      existingNailService: $existingNailService,\n      existingBookingDateTime: $existingBookingDateTime\n    }) {\n      technician {\n        id\n        nickname\n      }\n      availableTimes\n      bookedTimes\n    }\n  }\n",
+  "variables": {
+    "nailServices": ["67ab7aba1817210dca14d881"],
+    "bookingDate": "2026-03-30"
+  },
+  "operationName": "technicianAvailableTimesForMultipleServices"
+}

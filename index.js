@@ -17,7 +17,7 @@ program
   .version("1.0.0")
   .requiredOption("-u, --url <url>", "GraphQL endpoint URL", process.env.GQL_URL)
   .option("-t, --token <token>", "Bearer token for Authorization header", process.env.GQL_TOKEN)
-  .option("-q, --query <query>", "Inline GraphQL query/mutation string")
+  .option("-q, --query <query>", "Inline GraphQL query/mutation string (cannot co-exist with query.json)")
   .option("-f, --file <path>", "Path to .graphql file containing the query")
   .option("-v, --variables <json>", "JSON string of variables", "{}")
   .option("-H, --header <key:value...>", "Custom headers (repeatable)", collect, [])
@@ -29,6 +29,23 @@ program
 
 function collect(value, previous) {
   return previous.concat([value]);
+}
+
+function loadQueryJson() {
+  const jsonPath = path.resolve("query.json");
+  if (!fs.existsSync(jsonPath)) return null;
+  try {
+    const raw = fs.readFileSync(jsonPath, "utf-8");
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed.query !== "string") {
+      console.error(`Error: query.json must contain a "query" field with a GraphQL string`);
+      process.exit(1);
+    }
+    return parsed;
+  } catch (e) {
+    console.error(`Error: failed to parse query.json: ${e.message}`);
+    process.exit(1);
+  }
 }
 
 function resolveQuery(opts) {
@@ -117,15 +134,48 @@ function printDiff(goLines, csLines) {
 }
 
 async function run(opts) {
-  // Resolve query
-  let query = resolveQuery(opts);
-  if (!query) {
-    if (!process.stdin.isTTY) {
-      query = await readStdin();
-    } else {
-      console.error("Error: provide --query, --file, or pipe query via stdin");
-      process.exit(1);
+  // Check for query.json in cwd
+  const queryJson = loadQueryJson();
+  const hasQueryJson = queryJson !== null;
+  const hasInlineQuery = !!opts.query;
+
+  // query.json and -q must not co-exist
+  if (hasQueryJson && hasInlineQuery) {
+    console.error("Error: query.json and --query (-q) cannot be used together. Remove one.");
+    process.exit(1);
+  }
+
+  let query;
+  let variables;
+  let operationName;
+
+  if (hasQueryJson) {
+    // Primary source: query.json
+    query = queryJson.query;
+    variables = queryJson.variables;
+    operationName = queryJson.operationName;
+    console.error(`📄 Using query.json`);
+  } else {
+    // Fallback: -q, -f, or stdin
+    query = resolveQuery(opts);
+    if (!query) {
+      if (!process.stdin.isTTY) {
+        query = await readStdin();
+      } else {
+        console.error("Error: provide query.json in cwd, --query, --file, or pipe query via stdin");
+        process.exit(1);
+      }
     }
+
+    // If -q received a full JSON body (e.g. {"query":"...", "variables":{...}}), extract parts
+    try {
+      const parsed = JSON.parse(query);
+      if (parsed && typeof parsed === "object" && typeof parsed.query === "string") {
+        query = parsed.query;
+        if (parsed.variables) variables = parsed.variables;
+        if (parsed.operationName) operationName = parsed.operationName;
+      }
+    } catch {}
   }
 
   if (!opts.url) {
@@ -133,15 +183,18 @@ async function run(opts) {
     process.exit(1);
   }
 
-  let variables;
-  try {
-    variables = JSON.parse(opts.variables);
-  } catch (e) {
-    console.error(`Error: invalid JSON for --variables: ${e.message}`);
-    process.exit(1);
+  if (!variables) {
+    try {
+      variables = JSON.parse(opts.variables);
+    } catch (e) {
+      console.error(`Error: invalid JSON for --variables: ${e.message}`);
+      process.exit(1);
+    }
   }
 
-  const body = JSON.stringify({ query, variables });
+  const payload = { query, variables };
+  if (operationName) payload.operationName = operationName;
+  const body = JSON.stringify(payload);
 
   // --- Compare mode ---
   if (opts.compare) {
