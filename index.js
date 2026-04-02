@@ -209,18 +209,18 @@ async function run(opts) {
       console.error(`← Go:    ${goRes.status} ${goRes.statusText} (${goRes.elapsed}ms)`);
       console.error(`← C#:    ${csRes.status} ${csRes.statusText} (${csRes.elapsed}ms)`);
 
-      console.log("\n═══════════════════ Go Response ═══════════════════");
-      console.log(JSON.stringify(goRes.json, null, 2));
-
-      console.log("\n═══════════════════ C# Response ═══════════════════");
-      console.log(JSON.stringify(csRes.json, null, 2));
-
       // Diff with sorted keys for stable comparison
       const goSorted = JSON.stringify(deepSort(goRes.json), null, 2).split("\n");
       const csSorted = JSON.stringify(deepSort(csRes.json), null, 2).split("\n");
-
-      console.log("\n═══════════════════ Diff (sorted) ═══════════════════");
       const diffCount = printDiff(goSorted, csSorted);
+
+      if (diffCount > 0) {
+        console.log("\n═══════════════════ Go Response ═══════════════════");
+        console.log(JSON.stringify(goRes.json, null, 2));
+
+        console.log("\n═══════════════════ C# Response ═══════════════════");
+        console.log(JSON.stringify(csRes.json, null, 2));
+      }
 
       if (opts.raw) {
         // Also write raw files for external diffing
