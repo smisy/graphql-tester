@@ -3,6 +3,7 @@
 const { Command } = require("commander");
 const fs = require("fs");
 const path = require("path");
+const { diff, diffString } = require("json-diff");
 
 // Load .env from cwd
 try {
@@ -86,51 +87,28 @@ async function sendRequest(url, headers, body) {
   return { status: res.status, statusText: res.statusText, elapsed, json };
 }
 
-// Simple deep-sorted JSON for stable comparison
-function sortedJson(obj) {
-  return JSON.stringify(obj, Object.keys(obj).sort(), 2);
-}
-
-function deepSort(obj) {
-  if (Array.isArray(obj)) return obj.map(deepSort);
-  if (obj && typeof obj === "object") {
-    const sorted = {};
-    for (const key of Object.keys(obj).sort()) {
-      sorted[key] = deepSort(obj[key]);
+// Sort arrays of objects by stable keys for deterministic comparison.
+function sortArrays(obj) {
+  if (Array.isArray(obj)) {
+    let sorted = obj.map(sortArrays);
+    if (sorted.length > 0 && typeof sorted[0] === "object" && sorted[0] !== null) {
+      const getKey = (o) => o?.id || o?.technicianId || o?.technician?.id || null;
+      if (getKey(sorted[0]) !== null) {
+        sorted = [...sorted].sort((a, b) =>
+          String(getKey(a) || "").localeCompare(String(getKey(b) || ""))
+        );
+      }
     }
     return sorted;
   }
+  if (obj && typeof obj === "object") {
+    const result = {};
+    for (const key of Object.keys(obj)) {
+      result[key] = sortArrays(obj[key]);
+    }
+    return result;
+  }
   return obj;
-}
-
-function printDiff(goLines, csLines) {
-  const max = Math.max(goLines.length, csLines.length);
-  let diffCount = 0;
-  const diffs = [];
-
-  for (let i = 0; i < max; i++) {
-    const g = goLines[i] || "";
-    const c = csLines[i] || "";
-    if (g !== c) {
-      diffCount++;
-      diffs.push({ line: i + 1, go: g, csharp: c });
-    }
-  }
-
-  if (diffCount === 0) {
-    console.log("\n✅ Responses are identical.");
-  } else {
-    console.log(`\n⚠️  ${diffCount} difference(s) found:\n`);
-    for (const d of diffs.slice(0, 50)) {
-      console.log(`  Line ${d.line}:`);
-      if (d.go) console.log(`    \x1b[31m- Go:    ${d.go}\x1b[0m`);
-      if (d.csharp) console.log(`    \x1b[32m+ C#:    ${d.csharp}\x1b[0m`);
-    }
-    if (diffs.length > 50) {
-      console.log(`  ... and ${diffs.length - 50} more differences`);
-    }
-  }
-  return diffCount;
 }
 
 async function run(opts) {
@@ -209,12 +187,21 @@ async function run(opts) {
       console.error(`← Go:    ${goRes.status} ${goRes.statusText} (${goRes.elapsed}ms)`);
       console.error(`← C#:    ${csRes.status} ${csRes.statusText} (${csRes.elapsed}ms)`);
 
-      // Diff with sorted keys for stable comparison
-      const goSorted = JSON.stringify(deepSort(goRes.json), null, 2).split("\n");
-      const csSorted = JSON.stringify(deepSort(csRes.json), null, 2).split("\n");
-      const diffCount = printDiff(goSorted, csSorted);
+      // Sort arrays by stable keys before comparing (technician order may differ)
+      const goSorted = sortArrays(goRes.json);
+      const csSorted = sortArrays(csRes.json);
 
-      if (diffCount > 0) {
+      // Semantic diff using json-diff
+      const jsonDiff = diff(goSorted, csSorted);
+
+      if (!jsonDiff) {
+        console.log("\n✅ Responses are identical.");
+      } else {
+        console.log("\n⚠️  Differences found:\n");
+        console.log(diffString(goSorted, csSorted, { color: true }));
+      }
+
+      if (jsonDiff && !opts.raw) {
         console.log("\n═══════════════════ Go Response ═══════════════════");
         console.log(JSON.stringify(goRes.json, null, 2));
 
@@ -229,7 +216,7 @@ async function run(opts) {
         console.error("\nRaw files written: go.json, csharp.json");
       }
 
-      process.exit(diffCount > 0 ? 2 : 0);
+      process.exit(jsonDiff ? 2 : 0);
     } catch (e) {
       console.error(`\n❌ Request failed: ${e.message}`);
       process.exit(1);

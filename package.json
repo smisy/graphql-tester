@@ -9,10 +9,15 @@
   "scripts": {
     "start": "node index.js"
   },
-  "keywords": ["graphql", "cli", "testing"],
+  "keywords": [
+    "graphql",
+    "cli",
+    "testing"
+  ],
   "license": "MIT",
   "dependencies": {
     "commander": "^12.1.0",
-    "dotenv": "^16.4.7"
+    "dotenv": "^16.4.7",
+    "json-diff": "^1.0.6"
   }
 }

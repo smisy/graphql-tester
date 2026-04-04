@@ -3,3 +3,4 @@ node_modules/
 *.json.bak
 go.json
 csharp.json
+*.log
